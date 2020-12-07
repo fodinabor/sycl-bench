@@ -28,6 +28,8 @@ set(supported_implementations
   ComputeCpp
   hipSYCL
   LLVM
+  LLVM-FPGA
+  LLVM-FPGA-EMU
   LLVM-CUDA
   triSYCL
 )
@@ -43,6 +45,12 @@ elseif(SYCL_IMPL STREQUAL "hipSYCL")
   find_package(hipSYCL CONFIG REQUIRED)
 elseif(SYCL_IMPL STREQUAL "LLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl")
+elseif(SYCL_IMPL STREQUAL "LLVM-FPGA")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fintelfpga")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsycl -fintelfpga -Xshardware")
+elseif(SYCL_IMPL STREQUAL "LLVM-FPGA-EMU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fintelfpga -DFPGA_EMULATOR")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsycl -fintelfpga")
 elseif(SYCL_IMPL STREQUAL "LLVM-CUDA")
   set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice")
@@ -107,6 +115,20 @@ foreach(benchmark IN LISTS benchmarks)
 
   if(SYCL_IMPL STREQUAL "LLVM")
     target_compile_definitions(${target} PRIVATE __LLVM_SYCL__)
+  endif()
+  if(SYCL_IMPL STREQUAL "LLVM-FPGA" OR SYCL_IMPL STREQUAL "LLVM-FPGA-EMU")
+    target_compile_definitions(${target} PRIVATE __LLVM_SYCL_FPGA__)
+    separate_arguments(CMAKE_CXX_FLAGS_LIST UNIX_COMMAND "${CMAKE_CXX_FLAGS} ${COMPILE_FLAGS}")
+    separate_arguments(CMAKE_EXE_LINK_FLAGS_LIST UNIX_COMMAND "${CMAKE_EXE_LINK_FLAGS} ${COMPILE_FLAGS}")
+    # add_library(${target}_report STATIC ${benchmark})
+    # target_link_options(${target}_report PRIVATE -fsycl-link -fintelfpga -Xshardware)
+
+    get_target_property(TID ${target} INCLUDE_DIRECTORIES)
+    list(TRANSFORM TID PREPEND -I)
+    add_custom_command(OUTPUT ${target}_report.a
+      COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS_LIST} ${CMAKE_EXE_LINK_FLAGS_LIST} -D__LLVM_SYCL_FPGA__ -fsycl-link -Xshardware ${CMAKE_SOURCE_DIR}/${benchmark} -o ${CMAKE_BINARY_DIR}/${target}_report.a ${TID}
+      )
+    add_custom_target(${target}_report DEPENDS ${target}_report.a)
   endif()
 
   if(SYCL_IMPL STREQUAL "LLVM-CUDA")

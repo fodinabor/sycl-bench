@@ -156,6 +156,8 @@ private:
     return "ComputeCpp";
 #elif defined(__LLVM_SYCL__)
     return "LLVM (Intel DPC++)";
+#elif defined(__LLVM_SYCL_FPGA__)
+    return "LLVM FPGA (Intel DPC++)";
 #elif defined(__LLVM_SYCL_CUDA__)
     return "LLVM CUDA (Codeplay)";
 #elif defined(__TRISYCL__)

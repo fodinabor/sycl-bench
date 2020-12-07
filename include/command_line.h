@@ -12,6 +12,10 @@
 #include <CL/sycl.hpp>
 #include "result_consumer.h"
 
+#ifdef __LLVM_SYCL_FPGA__
+#include <CL/sycl/INTEL/fpga_extensions.hpp>
+#endif
+
 using CommandLineArguments = std::unordered_map<std::string, std::string>;
 using FlagList = std::unordered_set<std::string>;
 
@@ -241,10 +245,17 @@ private:
     };
 
 #if defined(__LLVM_SYCL_CUDA__)
-    if(device_selector != "gpu") {
+    if(device_type != "gpu") {
       throw std::invalid_argument{"Only the 'gpu' device is supported on LLVM CUDA"};
     }
     return cl::sycl::queue{CUDASelector{}, getQueueProperties()};
+#elif defined(__LLVM_SYCL_FPGA__)
+    if(device_type == "fpga")
+    #if defined(FPGA_EMULATOR)
+      return cl::sycl::queue{cl::sycl::INTEL::fpga_emulator_selector{}, getQueueProperties()};
+    #else
+      return cl::sycl::queue{cl::sycl::INTEL::fpga_selector{}, getQueueProperties()};
+    #endif
 #endif
 
     if(device_type == "cpu") {
